@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mrxs-reader"
+version = "0.1.0"
+description = "Pure-Python reader for 3DHISTECH MRXS multi-channel fluorescence slides"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Cardiac Adhesive Lab" },
+]
+keywords = [
+    "mrxs",
+    "3dhistech",
+    "mirax",
+    "whole-slide-imaging",
+    "fluorescence",
+    "pathology",
+    "microscopy",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "numpy>=1.22",
+    "Pillow>=9.0",
+]
+
+[project.optional-dependencies]
+tiff = ["tifffile>=2022.0"]
+viewer = [
+    "napari>=0.4.18",
+    "dask[array]>=2022.0",
+    "tifffile>=2022.0",
+]
+dev = [
+    "build",
+    "twine",
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+mrxs-reader = "mrxs_reader.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/cardiac-adhesive-lab/mrxs-reader"
+Documentation = "https://github.com/cardiac-adhesive-lab/mrxs-reader#readme"
+Issues = "https://github.com/cardiac-adhesive-lab/mrxs-reader/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
