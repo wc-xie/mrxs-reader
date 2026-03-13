@@ -254,3 +254,71 @@ class MrxsSlide:
                 for ch in self.channels
             ]
         }
+
+    def export_ome_tiff(self, output_path, channels: Optional[List[str]] = None,
+                        zoom_level: int = 0) -> None:
+        """
+        Export slide channels as a multi-channel OME-TIFF file.
+
+        Args:
+            output_path: Destination file path (use .ome.tiff extension).
+            channels: Channel names to include (None = all channels).
+            zoom_level: Pyramid zoom level (0 = full resolution).
+        """
+        try:
+            import tifffile
+        except ImportError as exc:
+            raise ImportError(
+                "tifffile is required for OME-TIFF export. "
+                "Install it with: pip install tifffile"
+            ) from exc
+
+        output_path = Path(output_path)
+        if channels is None:
+            channels = self.channel_names
+
+        arrays: List[np.ndarray] = []
+        channel_meta = []
+        pixel_size = self.get_level_pixel_size(zoom_level)
+
+        for ch_name in channels:
+            ch = self.get_channel(ch_name)
+            if ch is None:
+                continue
+            arr = self.read_channel(ch_name, zoom_level)
+            if arr is None:
+                continue
+            arrays.append(arr)
+            ch_entry: Dict = {'Name': ch.name}
+            if ch.excitation_wavelength:
+                ch_entry['ExcitationWavelength'] = ch.excitation_wavelength
+                ch_entry['ExcitationWavelengthUnit'] = 'nm'
+            if ch.emission_wavelength:
+                ch_entry['EmissionWavelength'] = ch.emission_wavelength
+                ch_entry['EmissionWavelengthUnit'] = 'nm'
+            channel_meta.append(ch_entry)
+
+        if not arrays:
+            raise ValueError("No channel data could be read for OME-TIFF export")
+
+        # Channels may differ by a few pixels due to per-channel tile cropping.
+        # Clip all arrays to the minimum common shape so np.stack succeeds.
+        min_h = min(a.shape[0] for a in arrays)
+        min_w = min(a.shape[1] for a in arrays)
+        arrays = [a[:min_h, :min_w] for a in arrays]
+
+        stack = np.stack(arrays, axis=0)  # (C, Y, X)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        tifffile.imwrite(
+            output_path,
+            stack,
+            photometric='minisblack',
+            metadata={
+                'axes': 'CYX',
+                'PhysicalSizeX': pixel_size,
+                'PhysicalSizeXUnit': '\u00b5m',
+                'PhysicalSizeY': pixel_size,
+                'PhysicalSizeYUnit': '\u00b5m',
+                'Channel': channel_meta,
+            },
+        )

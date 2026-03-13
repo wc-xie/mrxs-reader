@@ -354,6 +354,8 @@ class MrxsViewerApp(tk.Tk):
                         value="tiff").pack(side="left")
         ttk.Radiobutton(fmts, text="PNG",  variable=self._exp_fmt,
                         value="png").pack(side="left", padx=(10, 0))
+        ttk.Radiobutton(fmts, text="OME-TIFF", variable=self._exp_fmt,
+                        value="ome-tiff").pack(side="left", padx=(10, 0))
 
         # Zoom
         ttk.Label(f, text="Zoom level:").grid(row=3, column=0, sticky="w",
@@ -370,7 +372,9 @@ class MrxsViewerApp(tk.Tk):
                    style="Accent.TButton",
                    command=self._export_channels).pack(side="left", padx=(0, 8))
         ttk.Button(btn_row, text="Export Composite",
-                   command=self._export_composite).pack(side="left")
+                   command=self._export_composite).pack(side="left", padx=(0, 8))
+        ttk.Button(btn_row, text="Export OME-TIFF Stack",
+                   command=self._export_ometiff_stack).pack(side="left")
 
         f.columnconfigure(1, weight=1)
 
@@ -633,7 +637,39 @@ class MrxsViewerApp(tk.Tk):
                     self._append_log(f"SKIP  {name}: no data returned")
                     continue
                 stem = f"{slide_id}_{name}_L{level}"
-                if fmt == "tiff":
+                if fmt == "ome-tiff":
+                    path = out_dir / f"{stem}.ome.tiff"
+                    try:
+                        import tifffile
+                        ch = self._slide.get_channel(name)
+                        pixel_size = self._slide.get_level_pixel_size(level)
+                        ch_meta: dict = {'Name': name}
+                        if ch and ch.excitation_wavelength:
+                            ch_meta['ExcitationWavelength'] = ch.excitation_wavelength
+                            ch_meta['ExcitationWavelengthUnit'] = 'nm'
+                        if ch and ch.emission_wavelength:
+                            ch_meta['EmissionWavelength'] = ch.emission_wavelength
+                            ch_meta['EmissionWavelengthUnit'] = 'nm'
+                        import numpy as _np
+                        tifffile.imwrite(
+                            str(path),
+                            arr[_np.newaxis],  # (1, Y, X)
+                            photometric='minisblack',
+                            metadata={
+                                'axes': 'CYX',
+                                'PhysicalSizeX': pixel_size,
+                                'PhysicalSizeXUnit': '\u00b5m',
+                                'PhysicalSizeY': pixel_size,
+                                'PhysicalSizeYUnit': '\u00b5m',
+                                'Channel': [ch_meta],
+                            },
+                        )
+                    except ImportError:
+                        self._append_log(
+                            f"ERR   tifffile not installed; "
+                            f"install it with: pip install tifffile")
+                        continue
+                elif fmt == "tiff":
                     path = out_dir / f"{stem}.tiff"
                     try:
                         import tifffile
@@ -645,10 +681,50 @@ class MrxsViewerApp(tk.Tk):
                     path = out_dir / f"{stem}.png"
                     Image.fromarray(arr).save(str(path))
                 self._append_log(
-                    f"OK    {path.name}  ({arr.shape[1]}×{arr.shape[0]})")
+                    f"OK    {path.name}  ({arr.shape[1]}\u00d7{arr.shape[0]})")
             except Exception as exc:
                 self._append_log(f"ERR   {name}: {exc}")
-        self.after(0, self._status, f"Export done → {out_dir}")
+        self.after(0, self._status, f"Export done \u2192 {out_dir}")
+        self.after(0, self._stop_pbar)
+
+    def _export_ometiff_stack(self):
+        if self._slide is None:
+            messagebox.showwarning("No slide", "Load a slide first.")
+            return
+        selected = [n for n, v in self._ch_vars.items() if v.get()]
+        if not selected:
+            messagebox.showwarning("No channels",
+                                   "Check at least one channel in the sidebar.")
+            return
+        dest = filedialog.asksaveasfilename(
+            title="Save OME-TIFF stack",
+            defaultextension=".ome.tiff",
+            filetypes=[("OME-TIFF", "*.ome.tiff"), ("All files", "*.*")])
+        if not dest:
+            return
+        self._nb.select(2)
+        self._spawn(self._task_export_ometiff_stack,
+                    Path(dest), selected, self._exp_zoom.get())
+
+    def _task_export_ometiff_stack(self, dest: Path, channels: List[str],
+                                   level: int):
+        self._status("Building OME-TIFF stack…")
+        try:
+            import tifffile
+        except ImportError:
+            self.after(0, messagebox.showerror, "Missing library",
+                       "tifffile is required.\nInstall it with: pip install tifffile")
+            self.after(0, self._stop_pbar)
+            return
+        try:
+            self._slide.export_ome_tiff(dest, channels=channels, zoom_level=level)
+            for name in channels:
+                self._append_log(f"  channel: {name}")
+            self._append_log(f"OK    {dest.name}  ({len(channels)} channels)")
+            self.after(0, self._status, f"OME-TIFF stack saved: {dest}")
+        except Exception as exc:
+            self._append_log(f"ERR   {exc}")
+            self.after(0, self._status, f"Error: {exc}")
         self.after(0, self._stop_pbar)
 
     def _export_composite(self):

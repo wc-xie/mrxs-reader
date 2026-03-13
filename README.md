@@ -16,6 +16,7 @@ from `Data*.dat` files.
 | **Multi-channel** | Reads all fluorescence channels (DAPI, SpGreen, SpOrange, CY5, SpAqua, …) |
 | **Pyramid support** | Access any zoom level from full resolution to thumbnail |
 | **Composites** | Generate false-colour multi-channel overlays with auto-normalisation |
+| **OME-TIFF export** | Export channels as standards-compliant OME-TIFF with pixel size and wavelength metadata |
 | **CLI** | Extract channels or create composites from the command line |
 | **Lazy I/O** | Tiles read on demand — minimal memory footprint |
 
@@ -63,6 +64,13 @@ with MrxsSlide("filename.mrxs") as slide:
         zoom_level=7,
         normalize=True,
     )
+
+    # Export all channels as a multi-channel OME-TIFF
+    slide.export_ome_tiff(
+        "output.ome.tiff",
+        channels=["DAPI", "SpGreen", "CY5"],
+        zoom_level=5,
+    )
 ```
 
 ### Command Line
@@ -79,6 +87,15 @@ mrxs-reader extract filename.mrxs output/ --channels DAPI SpGreen --level 7 --fo
 
 # Create a composite image
 mrxs-reader composite filename.mrxs composite.png --channels DAPI SpGreen CY5 --level 7
+
+# Export all channels as a multi-channel OME-TIFF stack
+mrxs-reader ometiff filename.mrxs output.ome.tiff
+
+# Export specific channels as OME-TIFF at zoom level 5
+mrxs-reader ometiff filename.mrxs output.ome.tiff --channels DAPI CY5 --level 5
+
+# Extract channels as individual per-channel OME-TIFF files
+mrxs-reader extract filename.mrxs output/ --format ome-tiff --level 5
 ```
 
 Or via `python -m`:
@@ -129,6 +146,7 @@ The main entry point.  Use as a context manager.
 | `read_channel(name, zoom_level=0)` | 2-D `uint8` ndarray |
 | `get_thumbnail(name, max_size=512)` | 2-D `uint8` ndarray |
 | `create_composite(channels, zoom_level, normalize)` | 3-D RGB `uint8` ndarray |
+| `export_ome_tiff(output_path, channels, zoom_level)` | Write a multi-channel OME-TIFF with pixel size and wavelength metadata |
 | `get_slide_info()` | Dict with all metadata |
 
 ### Low-level modules
@@ -150,3 +168,14 @@ The main entry point.  Use as a context manager.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+## Changelog
+
+### 0.2.1
+- Added OME-TIFF export: `MrxsSlide.export_ome_tiff()` writes a standards-compliant multi-channel OME-TIFF with physical pixel size and excitation/emission wavelength metadata.
+- New `mrxs-reader ometiff` CLI command exports all (or selected) channels into a single stacked OME-TIFF file.
+- `mrxs-reader extract --format ome-tiff` writes per-channel OME-TIFF files.
+- GUI Export tab: added **OME-TIFF** format radio-button and **Export OME-TIFF Stack** button.
+- Fixed shape mismatch when channels crop to slightly different heights at full resolution.

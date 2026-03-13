@@ -77,11 +77,35 @@ def extract_channels(slide_path: Path,
                 if region != (0, 0, full_width, full_height):
                     region_suffix += f"_x{x}_y{y}_w{width}_h{height}"
                 
-                output_filename = f"{slide_name}_{channel_name}{region_suffix}.{format}"
+                ext = 'ome.tiff' if format.lower() == 'ome-tiff' else format
+                output_filename = f"{slide_name}_{channel_name}{region_suffix}.{ext}"
                 output_path = output_dir / output_filename
                 
                 # Save image
-                if format.lower() == 'tiff':
+                if format.lower() == 'ome-tiff':
+                    ch = slide.get_channel(channel_name)
+                    pixel_size = slide.get_level_pixel_size(level)
+                    ch_meta: dict = {'Name': channel_name}
+                    if ch and ch.excitation_wavelength:
+                        ch_meta['ExcitationWavelength'] = ch.excitation_wavelength
+                        ch_meta['ExcitationWavelengthUnit'] = 'nm'
+                    if ch and ch.emission_wavelength:
+                        ch_meta['EmissionWavelength'] = ch.emission_wavelength
+                        ch_meta['EmissionWavelengthUnit'] = 'nm'
+                    tifffile.imwrite(
+                        output_path,
+                        channel_data[np.newaxis],  # add C axis → (1, Y, X)
+                        photometric='minisblack',
+                        metadata={
+                            'axes': 'CYX',
+                            'PhysicalSizeX': pixel_size,
+                            'PhysicalSizeXUnit': '\u00b5m',
+                            'PhysicalSizeY': pixel_size,
+                            'PhysicalSizeYUnit': '\u00b5m',
+                            'Channel': [ch_meta],
+                        },
+                    )
+                elif format.lower() == 'tiff':
                     # Use tifffile for better metadata support
                     tifffile.imwrite(output_path, channel_data, 
                                    metadata={'channel': channel_name,
@@ -98,6 +122,27 @@ def extract_channels(slide_path: Path,
                 print(f"  Error extracting {channel_name}: {e}")
         
         print(f"Channel extraction complete. Files saved to: {output_dir}")
+
+
+def export_ome_tiff_stack(slide_path: Path,
+                         output_path: Path,
+                         channels: Optional[List[str]] = None,
+                         level: int = 0) -> None:
+    """
+    Export all (or selected) channels as a single multi-channel OME-TIFF stack.
+
+    Args:
+        slide_path: Path to slide directory or .mrxs file
+        output_path: Destination .ome.tiff file
+        channels: Channel names to include (None = all)
+        level: Pyramid level (0 = full resolution)
+    """
+    with MrxsSlide(slide_path) as slide:
+        print(f"Exporting OME-TIFF for slide: {slide.slide_id}")
+        ch_list = channels if channels is not None else slide.channel_names
+        print(f"Channels: {ch_list}")
+        slide.export_ome_tiff(output_path, channels=ch_list, zoom_level=level)
+        print(f"OME-TIFF saved: {output_path}")
 
 
 def create_composite(slide_path: Path,
@@ -185,6 +230,12 @@ Examples:
   # Create a composite image
   python -m mrxs_reader composite slide.mrxs composite.png --channels DAPI SpGreen CY5
   
+  # Export all channels as a multi-channel OME-TIFF stack
+  python -m mrxs_reader ometiff slide.mrxs slide.ome.tiff
+  
+  # Export specific channels as OME-TIFF stack at zoom level 5
+  python -m mrxs_reader ometiff slide.mrxs slide.ome.tiff --channels DAPI CY5 --level 5
+  
   # Extract a specific region
   python -m mrxs_reader extract slide.mrxs output/ --region 1000 1000 2000 2000
         """
@@ -207,9 +258,21 @@ Examples:
     extract_parser.add_argument('--level', type=int, default=0, help='Pyramid level (default: 0 = full resolution)')
     extract_parser.add_argument('--region', nargs=4, type=int, metavar=('X', 'Y', 'W', 'H'),
                                help='Extract specific region (x y width height)')
-    extract_parser.add_argument('--format', choices=['tiff', 'png'], default='tiff',
-                               help='Output image format (default: tiff)')
+    extract_parser.add_argument('--format', choices=['tiff', 'png', 'ome-tiff'], default='tiff',
+                               help='Output image format (default: tiff); ome-tiff writes per-channel OME-TIFF files')
     
+    # OME-TIFF export command
+    ometiff_parser = subparsers.add_parser(
+        'ometiff', help='Export channels as a multi-channel OME-TIFF stack')
+    ometiff_parser.add_argument('slide', type=Path,
+                                help='Path to slide directory or .mrxs file')
+    ometiff_parser.add_argument('output', type=Path,
+                                help='Output .ome.tiff file path')
+    ometiff_parser.add_argument('--channels', nargs='+',
+                                help='Channel names to include (default: all)')
+    ometiff_parser.add_argument('--level', type=int, default=0,
+                                help='Pyramid level (default: 0 = full resolution)')
+
     # Composite command  
     composite_parser = subparsers.add_parser('composite', help='Create multi-channel composite')
     composite_parser.add_argument('slide', type=Path, help='Path to slide directory or .mrxs file')
@@ -247,6 +310,14 @@ Examples:
                 format=args.format
             )
             
+        elif args.command == 'ometiff':
+            export_ome_tiff_stack(
+                slide_path=args.slide,
+                output_path=args.output,
+                channels=args.channels,
+                level=args.level,
+            )
+
         elif args.command == 'composite':
             region = tuple(args.region) if args.region else None
             create_composite(
