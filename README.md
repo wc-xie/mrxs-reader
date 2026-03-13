@@ -1,9 +1,8 @@
 # mrxs-reader
 
-**Pure-Python reader for 3DHISTECH MRXS multi-channel fluorescence whole-slide images.**
+**Python reader module for MRXS multi-channel fluorescence whole-slide images.**
 
-`mrxs-reader` parses the MIRAX (`.mrxs`) file format without any compiled
-dependencies — no OpenSlide, no vendor SDK.  It handles `Slidedat.ini`
+`mrxs-reader` parses the MIRAX (`.mrxs`) file format. It handles `Slidedat.ini`
 metadata, linked-list page traversal in `Index.dat`, and JPEG tile decoding
 from `Data*.dat` files.
 
@@ -90,7 +89,7 @@ python -m mrxs_reader info filename.mrxs
 
 ## MRXS Format Overview
 
-A 3DHISTECH MRXS slide consists of:
+A MRXS slide consists of:
 
 | File | Purpose |
 |------|---------|

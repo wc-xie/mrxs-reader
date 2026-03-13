@@ -4,22 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mrxs-reader"
-version = "0.1.0"
-description = "Pure-Python reader for 3DHISTECH MRXS multi-channel fluorescence slides"
+version = "0.2.0"
+description = "Python reader module for MRXS multi-channel fluorescence slides"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [
-    { name = "Cardiac Adhesive Lab" },
+    { name = "mrxs-reader" },
 ]
 keywords = [
     "mrxs",
-    "3dhistech",
     "mirax",
     "whole-slide-imaging",
     "fluorescence",
     "pathology",
-    "microscopy",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -58,9 +56,8 @@ dev = [
 mrxs-reader = "mrxs_reader.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/cardiac-adhesive-lab/mrxs-reader"
-Documentation = "https://github.com/cardiac-adhesive-lab/mrxs-reader#readme"
-Issues = "https://github.com/cardiac-adhesive-lab/mrxs-reader/issues"
+Homepage = "https://pypi.org/project/mrxs-reader/"
+Source = "https://github.com/wc-xie/mrxs-reader"
 
 [tool.setuptools.packages.find]
 where = ["src"]

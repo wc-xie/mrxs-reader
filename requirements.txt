@@ -1,0 +1,11 @@
+# MRXS Reader Requirements
+# Core dependencies (matches pyproject.toml)
+numpy>=1.22
+Pillow>=9.0
+
+# Optional: TIFF export
+tifffile>=2022.0
+
+# Optional: interactive viewer
+# napari>=0.4.18
+# dask[array]>=2022.0
